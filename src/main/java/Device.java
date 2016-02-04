@@ -21,7 +21,7 @@ public class Device {
         return instance;
     }
 
-    public boolean initListener() {
+    public static boolean initListener() {
         //Initializes the ddm library.
         //This must be called once before any call to createBridge(java.lang.String,boolean).
         //The library only monitors devices. The applications are left untouched, letting other tools built on ddmlib
@@ -30,7 +30,7 @@ public class Device {
 
         //Creates a new debug bridge from the location of the command line tool.
         //Any existing server will be disconnected, unless the location is the same and forceNewBridge is set to false.
-        AndroidDebugBridge debugBridge = AndroidDebugBridge.createBridge("D:\\Android\\platform-tools\\adb.exe", true);
+        AndroidDebugBridge debugBridge = AndroidDebugBridge.createBridge("D:\\adb.exe", true);
 
         //NULL Check for debugBridge
         if (debugBridge == null) {
@@ -41,19 +41,20 @@ public class Device {
         //Classes which implement this interface provide methods that deal with IDevice addition, deletion, and changes.
         AndroidDebugBridge.IDeviceChangeListener myListener = new AndroidDebugBridge.IDeviceChangeListener() {
 
-            @Override
+
             public void deviceChanged(IDevice device, int arg1) {
                 // not implemented
             }
 
-            @Override
+
             public void deviceConnected(IDevice device) {
                 System.out.println(String.format("%s connected", device.getSerialNumber()));
             }
 
-            @Override
+
             public void deviceDisconnected(IDevice device) {
                 System.out.println(String.format("%s disconnected", device.getSerialNumber()));
+
             }
 
         };
@@ -62,5 +63,10 @@ public class Device {
         //by sending it one of the messages defined in the AndroidDebugBridge.IClientChangeListener interface.
         AndroidDebugBridge.addDeviceChangeListener(myListener);
         return true;
+    }
+
+    public static void main(String[] args) {
+        Device.initListener();
+
     }
 }
