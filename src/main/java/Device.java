@@ -1,6 +1,16 @@
 import com.android.ddmlib.AndroidDebugBridge;
 import com.android.ddmlib.IDevice;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Enumeration;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+
 /**
  * Created by Prathieshna.
  */
@@ -67,6 +77,79 @@ public class Device {
 
     public static void main(String[] args) {
         Device.initListener();
+        ProcessBuilder pb = new ProcessBuilder("adb", "pull", "/data/app/com.iit.prathieshna.myapplication-1/base.apk").inheritIO();
+        try {
+            Process pc = pb.start();
+            pc.waitFor();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+        System.out.println("FETCHED APK");
 
+        pb = new ProcessBuilder("sh", "d2j-dex2jar.sh", "-f", "-o", "output.jar", "base.apk").inheritIO();
+        try {
+            Process pc = pb.start();
+            pc.waitFor();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+        System.out.println("DE-COMPILATION FINISHED");
+
+        Device.getClasseNames("output.jar", "com.iit.prathieshna.myapplication.HelloWorld");
+    }
+
+    public static void getClasseNames(String pathToJar, String className1) {
+        JarFile jarFile = null;
+
+        try {
+            jarFile = new JarFile(pathToJar);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        assert jarFile != null;
+
+        Enumeration e = jarFile.entries();
+
+        URL[] urls = new URL[0];
+
+        try {
+            urls = new URL[]{new URL("jar:file:" + pathToJar + "!/")};
+        } catch (MalformedURLException e1) {
+            e1.printStackTrace();
+        }
+
+        URLClassLoader cl = URLClassLoader.newInstance(urls);
+
+        while (e.hasMoreElements()) {
+            JarEntry je = (JarEntry) e.nextElement();
+            if (je.isDirectory() || !je.getName().endsWith(".class")) {
+                continue;
+            }
+
+            // -6 because of .class
+            String className = je.getName().substring(0, je.getName().length() - 6);
+            className = className.replace('/', '.');
+            try {
+                if (className.equals(className1)) {
+                    System.out.println("CLASS FOUND");
+                    Class <?> myClass = cl.loadClass(className);
+                    Object whatInstance = myClass.newInstance();
+                    Method myMethod = myClass.getMethod("helloworld", new Class[]{});
+                    myMethod.invoke(whatInstance);
+                }
+
+            } catch (ClassNotFoundException e1) {
+                e1.printStackTrace();
+            } catch (NoSuchMethodException e1) {
+                e1.printStackTrace();
+            } catch (InstantiationException e1) {
+                e1.printStackTrace();
+            } catch (IllegalAccessException e1) {
+                e1.printStackTrace();
+            } catch (InvocationTargetException e1) {
+                e1.printStackTrace();
+            }
+        }
     }
 }
