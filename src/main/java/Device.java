@@ -1,13 +1,15 @@
-import com.android.ddmlib.AndroidDebugBridge;
-import com.android.ddmlib.IDevice;
-
-import java.io.IOException;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.net.*;
 import java.util.Enumeration;
+import java.util.Scanner;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -17,139 +19,133 @@ import java.util.jar.JarFile;
 
 public class Device {
 
-    //Singleton
-    private static Device instance = null;
-
-    private Device() {
-        // Exists only to defeat instantiation.
-    }
-
-    public static Device getInstance() {
-        if (instance == null) {
-            instance = new Device();
+    public static void execAdb() {
+        try {
+            Process p = Runtime.getRuntime().exec("adb.exe forward tcp:38300 tcp:38300");
+            Scanner sc = new Scanner(p.getErrorStream());
+            if (sc.hasNext()) {
+                while (sc.hasNext()) System.out.println(sc.next());
+                System.err.println("Cannot start the Android debug bridge");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return instance;
-    }
-
-    public static boolean initListener() {
-        //Initializes the ddm library.
-        //This must be called once before any call to createBridge(java.lang.String,boolean).
-        //The library only monitors devices. The applications are left untouched, letting other tools built on ddmlib
-        //to connect a debugger to them.
-        AndroidDebugBridge.init(false);
-
-        //Creates a new debug bridge from the location of the command line tool.
-        //Any existing server will be disconnected, unless the location is the same and forceNewBridge is set to false.
-        AndroidDebugBridge debugBridge = AndroidDebugBridge.createBridge("D:\\adb.exe", true);
-
-        //NULL Check for debugBridge
-        if (debugBridge == null) {
-            System.err.println("Invalid ADB location.");
-            return false;
-        }
-
-        //Classes which implement this interface provide methods that deal with IDevice addition, deletion, and changes.
-        AndroidDebugBridge.IDeviceChangeListener myListener = new AndroidDebugBridge.IDeviceChangeListener() {
-
-
-            public void deviceChanged(IDevice device, int arg1) {
-                // not implemented
-            }
-
-
-            public void deviceConnected(IDevice device) {
-                System.out.println(String.format("%s connected", device.getSerialNumber()));
-            }
-
-
-            public void deviceDisconnected(IDevice device) {
-                System.out.println(String.format("%s disconnected", device.getSerialNumber()));
-
-            }
-
-        };
-
-        //Adds the listener to the collection of listeners who will be notified when a Client property changed,
-        //by sending it one of the messages defined in the AndroidDebugBridge.IClientChangeListener interface.
-        AndroidDebugBridge.addDeviceChangeListener(myListener);
-        return true;
     }
 
     public static void main(String[] args) {
-        Device.initListener();
-        ProcessBuilder pb = new ProcessBuilder("adb", "pull", "/data/app/com.iit.prathieshna.myapplication-1/base.apk").inheritIO();
-        try {
-            Process pc = pb.start();
-            pc.waitFor();
-        } catch (Exception e) {
-            System.out.println(e);
-        }
-        System.out.println("FETCHED APK");
+        final Thread cyberForagingWorkerThread;
+        final InitializeConnection worker = new InitializeConnection();
+        cyberForagingWorkerThread = new Thread(worker);
 
-        pb = new ProcessBuilder("sh", "d2j-dex2jar.sh", "-f", "-o", "output.jar", "base.apk").inheritIO();
-        try {
-            Process pc = pb.start();
-            pc.waitFor();
-        } catch (Exception e) {
-            System.out.println(e);
+        if (!SystemTray.isSupported()) {
+            System.err.println("System tray is not supported.");
+            return;
         }
-        System.out.println("DE-COMPILATION FINISHED");
 
-        Device.getClasseNames("output.jar", "com.iit.prathieshna.myapplication.HelloWorld");
+        SystemTray systemTray = SystemTray.getSystemTray();
+
+        Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("pause.png"));
+
+        final TrayIcon trayIcon = new TrayIcon(image);
+
+        final PopupMenu trayPopupMenu = new PopupMenu();
+
+        MenuItem startService = new MenuItem("Start Service");
+        startService.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JOptionPane.showMessageDialog(null, "Service Started", "Surrogate Service", JOptionPane.INFORMATION_MESSAGE);
+                try {
+                    cyberForagingWorkerThread.start();
+                    Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("cyber.gif"));
+                    trayIcon.setImage(image);
+                } catch (Exception err) {
+                    Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("cyber.gif"));
+                    trayIcon.setImage(image);
+                    worker.resume();
+                }
+            }
+        });
+        trayPopupMenu.add(startService);
+
+        MenuItem action = new MenuItem("Stop Service");
+        action.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JOptionPane.showMessageDialog(null, "Service Stopped", "Surrogate Service", JOptionPane.INFORMATION_MESSAGE);
+                try {
+                    worker.pause();
+                    Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("pause.png"));
+                    trayIcon.setImage(image);
+                } catch (Exception e1) {
+                    System.err.println("Service has not stared yet");
+                }
+            }
+        });
+        trayPopupMenu.add(action);
+
+        MenuItem close = new MenuItem("Close");
+        close.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                System.exit(0);
+            }
+        });
+        trayPopupMenu.add(close);
+
+        trayIcon.setPopupMenu(trayPopupMenu);
+
+        trayIcon.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                trayIcon.setToolTip(ResourceUsage.batteryStatus());
+            }
+        });
+        trayIcon.setImageAutoSize(true);
+
+        try {
+            systemTray.add(trayIcon);
+        } catch (AWTException awtException) {
+            awtException.printStackTrace();
+        }
     }
 
-    public static void getClasseNames(String pathToJar, String className1) {
+    public static Object getClassNames(String pathToJar, String className, String methodName) {
         JarFile jarFile = null;
-
         try {
             jarFile = new JarFile(pathToJar);
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        assert jarFile != null;
-
-        Enumeration e = jarFile.entries();
-
-        URL[] urls = new URL[0];
-
-        try {
-            urls = new URL[]{new URL("jar:file:" + pathToJar + "!/")};
-        } catch (MalformedURLException e1) {
-            e1.printStackTrace();
-        }
-
-        URLClassLoader cl = URLClassLoader.newInstance(urls);
-
-        while (e.hasMoreElements()) {
-            JarEntry je = (JarEntry) e.nextElement();
-            if (je.isDirectory() || !je.getName().endsWith(".class")) {
-                continue;
-            }
-
-            // -6 because of .class
-            String className = je.getName().substring(0, je.getName().length() - 6);
-            className = className.replace('/', '.');
-            try {
-                if (className.equals(className1)) {
-                    System.out.println("CLASS FOUND");
-                    Class <?> myClass = cl.loadClass(className);
-                    Object whatInstance = myClass.newInstance();
-                    Method myMethod = myClass.getMethod("helloworld", new Class[]{});
-                    myMethod.invoke(whatInstance);
+        if (jarFile != null) {
+            Enumeration e = jarFile.entries();
+            while (e.hasMoreElements()) {
+                try {
+                URL[] urls;
+                urls = new URL[]{new URL("jar:file:" + pathToJar + "!/")};
+                URLClassLoader cl = URLClassLoader.newInstance(urls);
+                JarEntry je = (JarEntry) e.nextElement();
+                if (je.isDirectory() || !je.getName().endsWith(".class")) {
+                    continue;
                 }
 
-            } catch (ClassNotFoundException e1) {
-                e1.printStackTrace();
-            } catch (NoSuchMethodException e1) {
-                e1.printStackTrace();
-            } catch (InstantiationException e1) {
-                e1.printStackTrace();
-            } catch (IllegalAccessException e1) {
-                e1.printStackTrace();
-            } catch (InvocationTargetException e1) {
-                e1.printStackTrace();
+                // -6 because of .class
+                String tempClassName = je.getName().substring(0, je.getName().length() - 6);
+                tempClassName = tempClassName.replace('/', '.');
+
+                    if (className.equals(tempClassName)) {
+                        System.out.println("CLASS FOUND");
+                        Class<?> myClass = cl.loadClass(className);
+                        Object whatInstance = myClass.newInstance();
+                        Method myMethod = myClass.getMethod(methodName, new Class[]{});
+                        return myMethod.invoke(whatInstance);
+                    }
+                } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException| MalformedURLException | IllegalAccessException | InvocationTargetException e1) {
+                    System.err.println(e1);
+                }
             }
         }
+        return null;
     }
 }
