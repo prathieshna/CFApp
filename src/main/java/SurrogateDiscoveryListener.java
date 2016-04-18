@@ -1,7 +1,6 @@
 
 import java.io.OutputStream;
 import java.util.ArrayList;
-
 import javax.bluetooth.DataElement;
 import javax.bluetooth.DeviceClass;
 import javax.bluetooth.DiscoveryAgent;
