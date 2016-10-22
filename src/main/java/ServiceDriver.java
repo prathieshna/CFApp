@@ -1,3 +1,10 @@
+/**
+ * Created by Prathieshna.
+ */
+
+import android.bluetooth.BluetoothClass;
+import sun.nio.cs.Surrogate;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -8,37 +15,20 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
+import java.net.SocketException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Enumeration;
-import java.util.Scanner;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-/**
- * Created by Prathieshna.
- */
-
-public class Device {
-
-    public static void execAdb() {
-        try {
-            Process p = Runtime.getRuntime().exec("adb.exe forward tcp:38300 tcp:38300");
-            Scanner sc = new Scanner(p.getErrorStream());
-            if (sc.hasNext()) {
-                while (sc.hasNext()) System.out.println(sc.next());
-                System.err.println("Cannot start the Android debug bridge");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
+public class ServiceDriver {
     public static void main(String[] args) {
-        final Thread cyberForagingWorkerThread;
-        final InitializeConnection worker = new InitializeConnection();
-        cyberForagingWorkerThread = new Thread(worker);
-
+        System.out.println(ResourceUsage.getStatus());
+        final String ipAddress = Util.getIp();
+        final Thread listener;
+        final SocketListener socketListener = new SocketListener();
+        listener = new Thread(socketListener);
         if (!SystemTray.isSupported()) {
             System.err.println("System tray is not supported.");
             return;
@@ -46,7 +36,7 @@ public class Device {
 
         SystemTray systemTray = SystemTray.getSystemTray();
 
-        Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("pause.png"));
+        Image image = Toolkit.getDefaultToolkit().getImage(ServiceDriver.class.getResource("pause.png"));
 
         final TrayIcon trayIcon = new TrayIcon(image);
 
@@ -58,13 +48,13 @@ public class Device {
             public void actionPerformed(ActionEvent e) {
                 JOptionPane.showMessageDialog(null, "Service Started", "Surrogate Service", JOptionPane.INFORMATION_MESSAGE);
                 try {
-                    cyberForagingWorkerThread.start();
-                    Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("cyber.gif"));
+                    listener.start();
+                    Image image = Toolkit.getDefaultToolkit().getImage(ServiceDriver.class.getResource("cyber.gif"));
                     trayIcon.setImage(image);
                 } catch (Exception err) {
-                    Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("cyber.gif"));
+                    Image image = Toolkit.getDefaultToolkit().getImage(ServiceDriver.class.getResource("cyber.gif"));
                     trayIcon.setImage(image);
-                    worker.resume();
+                    socketListener.resume();
                 }
             }
         });
@@ -76,8 +66,8 @@ public class Device {
             public void actionPerformed(ActionEvent e) {
                 JOptionPane.showMessageDialog(null, "Service Stopped", "Surrogate Service", JOptionPane.INFORMATION_MESSAGE);
                 try {
-                    worker.pause();
-                    Image image = Toolkit.getDefaultToolkit().getImage(Device.class.getResource("pause.png"));
+                    socketListener.pause();
+                    Image image = Toolkit.getDefaultToolkit().getImage(ServiceDriver.class.getResource("pause.png"));
                     trayIcon.setImage(image);
                 } catch (Exception e1) {
                     System.err.println("Service has not stared yet");
@@ -100,7 +90,7 @@ public class Device {
         trayIcon.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseMoved(MouseEvent e) {
-                trayIcon.setToolTip(ResourceUsage.batteryStatus());
+                trayIcon.setToolTip(Util.getStatus(ipAddress));
             }
         });
         trayIcon.setImageAutoSize(true);
@@ -112,7 +102,7 @@ public class Device {
         }
     }
 
-    public static Object getClassNames(String pathToJar, String className, String methodName) {
+    public static Object worker(String pathToJar, String className, String methodName) {
         JarFile jarFile = null;
         try {
             jarFile = new JarFile(pathToJar);
@@ -124,27 +114,30 @@ public class Device {
             Enumeration e = jarFile.entries();
             while (e.hasMoreElements()) {
                 try {
-                URL[] urls;
-                urls = new URL[]{new URL("jar:file:" + pathToJar + "!/")};
-                URLClassLoader cl = URLClassLoader.newInstance(urls);
-                JarEntry je = (JarEntry) e.nextElement();
-                if (je.isDirectory() || !je.getName().endsWith(".class")) {
-                    continue;
-                }
-
-                // -6 because of .class
-                String tempClassName = je.getName().substring(0, je.getName().length() - 6);
-                tempClassName = tempClassName.replace('/', '.');
-
+                    URL[] urls;
+                    urls = new URL[]{new URL("jar:file:" + pathToJar + "!/")};
+                    URLClassLoader cl = URLClassLoader.newInstance(urls);
+                    JarEntry je = (JarEntry) e.nextElement();
+                    if (je.isDirectory() || !je.getName().endsWith(".class")) {
+                        continue;
+                    }
+                    // -6 because of .class
+                    String tempClassName = je.getName().substring(0, je.getName().length() - 6);
+                    tempClassName = tempClassName.replace('/', '.');
                     if (className.equals(tempClassName)) {
-                        System.out.println("CLASS FOUND");
                         Class<?> myClass = cl.loadClass(className);
                         Object whatInstance = myClass.newInstance();
                         Method myMethod = myClass.getMethod(methodName, new Class[]{});
                         return myMethod.invoke(whatInstance);
                     }
-                } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException| MalformedURLException | IllegalAccessException | InvocationTargetException e1) {
+                } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | MalformedURLException | IllegalAccessException | InvocationTargetException e1) {
                     System.err.println(e1);
+                } finally {
+                    try {
+                        jarFile.close();
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
                 }
             }
         }

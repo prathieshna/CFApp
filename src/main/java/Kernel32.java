@@ -1,6 +1,7 @@
 /**
  * Created by Prathieshna.
  */
+
 import com.sun.jna.Native;
 import com.sun.jna.Structure;
 import com.sun.jna.win32.StdCallLibrary;
@@ -16,7 +17,6 @@ public interface Kernel32 extends StdCallLibrary {
         public byte ACLineStatus;
         public byte BatteryFlag;
         public byte BatteryLifePercent;
-        public byte Reserved1;
         public int BatteryLifeTime;
         public int BatteryFullLifeTime;
 
@@ -26,7 +26,6 @@ public interface Kernel32 extends StdCallLibrary {
             fields.add("ACLineStatus");
             fields.add("BatteryFlag");
             fields.add("BatteryLifePercent");
-            fields.add("Reserved1");
             fields.add("BatteryLifeTime");
             fields.add("BatteryFullLifeTime");
             return fields;
@@ -81,11 +80,12 @@ public interface Kernel32 extends StdCallLibrary {
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
-            sb.append("ACLineStatus: " + getACLineStatusString() + "\n");
-            sb.append("Battery Flag: " + getBatteryFlagString() + "\n");
-            sb.append("Battery Life: " + ((BatteryLifePercent == -1) ? "Unknown" : BatteryLifePercent + "%" )+ "\n");
-            sb.append("Battery Left: " + ((BatteryLifeTime == -1) ? "Unknown" : BatteryLifeTime + " seconds" )+ "\n");
-            sb.append("Battery Full: " + ((BatteryFullLifeTime == -1) ? "Unknown" : BatteryFullLifeTime + " seconds" )+ "\n");
+//            sb.append("ACLineStatus: " + getACLineStatusString() + "\n");
+//            sb.append("Battery Flag: " + getBatteryFlagString() + "\n");
+//            sb.append("Battery Life: " + ((BatteryLifePercent == -1) ? "Unknown" : BatteryLifePercent + "%" )+ "\n");
+//            sb.append("Battery Left: " + ((BatteryLifeTime == -1) ? "Unknown" : BatteryLifeTime + " seconds" )+ "\n");
+//            sb.append("Battery Full: " + ((BatteryFullLifeTime == -1) ? "Unknown" : BatteryFullLifeTime + " seconds" )+ "\n");
+            sb.append(getACLineStatusString()+","+BatteryLifePercent);
             return sb.toString();
         }
     }
